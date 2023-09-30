@@ -8,19 +8,88 @@ from config import app, db, api
 from models import User, Recipe
 
 class Signup(Resource):
-    pass
+    def post(self):
+        data = request.json
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return {'error': 'Username and password are required'}, 422
+
+        try:
+            user = User(username=username)
+            user.password = password  # Set the hashed password
+            db.session.add(user)
+            db.session.commit()
+            session['user_id'] = user.id  # Set the user's session
+            return {
+                'user_id': user.id,
+                'username': user.username,
+                'image_url': user.image_url,
+                'bio': user.bio
+            }, 201
+        except IntegrityError:
+            db.session.rollback()
+            return {'error': 'Username already exists'}, 422
 
 class CheckSession(Resource):
-    pass
+    def get(self):
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+            return {
+                'user_id': user.id,
+                'username': user.username,
+                'image_url': user.image_url,
+                'bio': user.bio
+            }, 200
+        else:
+            return {'error': 'Unauthorized'}, 401
 
 class Login(Resource):
-    pass
+    def post(self):
+        data = request.json
+        username = data.get('username')
+        password = data.get('password')
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            return {
+                'user_id': user.id,
+                'username': user.username,
+                'image_url': user.image_url,
+                'bio': user.bio
+            }, 200
+        else:
+            return {'error': 'Unauthorized'}, 401
 
 class Logout(Resource):
-    pass
+    def delete(self):
+        if 'user_id' in session:
+            session.pop('user_id')
+            return '', 204
+        else:
+            return {'error': 'Unauthorized'}, 401
 
 class RecipeIndex(Resource):
-    pass
+    def get(self):
+        if 'user_id' in session:
+            recipes = Recipe.query.all()
+            recipe_data = []
+            for recipe in recipes:
+                recipe_data.append({
+                    'title': recipe.title,
+                    'instructions': recipe.instructions,
+                    'minutes_to_complete': recipe.minutes_to_complete,
+                    'user': {
+                        'username': recipe.user.username,
+                        'image_url': recipe.user.image_url,
+                        'bio': recipe.user.bio
+                    }
+                })
+            return recipe_data, 200
+        else:
+            return {'error': 'Unauthorized'}, 401
 
 api.add_resource(Signup, '/signup', endpoint='signup')
 api.add_resource(CheckSession, '/check_session', endpoint='check_session')

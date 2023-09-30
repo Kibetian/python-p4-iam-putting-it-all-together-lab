@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "phase-4-rails-putting-it-all-together-auth-client": "file:.."
+  }
+}
